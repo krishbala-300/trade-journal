@@ -56,9 +56,14 @@
         .pl-input-group input { font-size: 1.3em; font-weight: bold; text-align: left; background: #15151a; border: 2px solid #444; color: #fff; }
         .pl-input-group input:focus { border-color: #4caf50; }
         
-        .image-paste-area { border: 2px dashed #555; padding: 20px; text-align: center; color: #888; margin-bottom: 15px; border-radius: 4px; cursor: pointer; background: #1a1a20; transition: 0.3s; }
+        /* 3-Image Grid Styles */
+        .image-paste-area { border: 2px dashed #555; padding: 20px; text-align: center; color: #888; margin-bottom: 15px; border-radius: 4px; cursor: pointer; background: #1a1a20; transition: 0.3s; min-height: 80px;}
         .image-paste-area:hover { border-color: #4caf50; color: #aaa; }
-        .image-paste-area img { max-width: 100%; max-height: 350px; margin-top: 10px; border-radius: 4px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .image-preview-container { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+        .img-preview-wrapper { position: relative; width: 30%; min-width: 150px; }
+        .img-preview-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4caf50; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .btn-remove-img { position: absolute; top: -10px; right: -10px; background: #f44336; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-weight: bold; padding: 0; line-height: 25px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5);}
+        .btn-remove-img:hover { background: #d32f2f; }
         
         button { background-color: #4caf50; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 15px; transition: 0.2s; }
         button:hover { background-color: #45a049; }
@@ -77,8 +82,11 @@
         .history-card { background: #1e1e24; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #444; position: relative; page-break-inside: avoid;}
         .history-card.profit-card { border-left-color: #4caf50; }
         .history-card.loss-card { border-left-color: #f44336; }
-        .history-card img { max-width: 100%; margin-top: 10px; border-radius: 4px; border: 1px solid #333; }
         .history-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 8px; align-items: center; }
+        
+        /* History Images Grid */
+        .history-images { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .history-images img { max-width: calc(33.333% - 7px); border-radius: 4px; border: 1px solid #444; object-fit: contain; background: #15151a; }
 
         @media print {
             body { background-color: #fff; color: #000; padding: 0; font-size: 12pt; }
@@ -94,6 +102,7 @@
             .text-green { color: #2e7d32 !important; font-weight: bold;}
             .text-red { color: #c62828 !important; font-weight: bold;}
             div[style*="color: #aaa;"] { color: #555 !important; }
+            .history-images img { border-color: #ccc !important; background: transparent !important; }
         }
     </style>
 </head>
@@ -202,8 +211,8 @@
     </div>
 
     <div class="image-paste-area" id="pasteArea" tabindex="0">
-        <p>Click here and press <b>Ctrl+V</b> (or Cmd+V) to paste your chart image</p>
-        <img id="previewImage" src="" alt="Chart Preview">
+        <p id="pasteInstruction">Click here and press <b>Ctrl+V</b> (or Cmd+V) to paste up to 3 chart images (e.g., HTF, LTF, Execution)</p>
+        <div id="previewContainer" class="image-preview-container"></div>
     </div>
     
     <div class="form-group pl-input-group">
@@ -257,7 +266,7 @@
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
-            callback: '', // defined later
+            callback: '', 
         });
         gisInited = true;
     }
@@ -346,7 +355,7 @@
             if (!fileId) { alert("No sync file found in your Google Drive yet."); btn.innerText = "⬇ Load from Cloud"; btn.disabled = false; return; }
 
             const response = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
-            const data = response.result; // gapi automatically parses JSON
+            const data = response.result; 
 
             if (data.trades && Array.isArray(data.trades)) {
                 if(data.baseCapital !== undefined) {
@@ -355,7 +364,6 @@
                     localStorage.setItem('tradeJournalCapital', baseCapital);
                 }
 
-                // Clear current DB and load cloud data
                 const transaction = db.transaction(["trades"], "readwrite");
                 const objectStore = transaction.objectStore("trades");
                 objectStore.clear(); 
@@ -375,7 +383,7 @@
 
 
     // --- CORE JOURNAL APP LOGIC ---
-    let currentImageBase64 = "";
+    let currentImages = []; // Array to hold up to 3 base64 images
     let db;
     let baseCapital = parseFloat(localStorage.getItem('tradeJournalCapital')) || 0;
     
@@ -429,7 +437,7 @@
             entry: calculatedBalanceBeforeTrueUp.toFixed(2), exit: manualActualValue.toFixed(2),
             size: 1, commission: 0,
             notes: `Manual balance true-up. Calculated Adjustment: ${adjustmentNeeded >= 0 ? '+' : ''}${adjustmentNeeded.toFixed(2)}`,
-            pl: adjustmentNeeded, image: "", logTimestamp: new Date().getTime(), isCorrection: true 
+            pl: adjustmentNeeded, images: [], logTimestamp: new Date().getTime(), isCorrection: true 
         };
 
         const transaction = db.transaction(["trades"], "readwrite");
@@ -487,188 +495,4 @@
     function toggleFavorite() {
         const currentVal = document.getElementById('asset').value;
         if (favoritePairs.includes(currentVal)) { favoritePairs = favoritePairs.filter(p => p !== currentVal); } 
-        else { favoritePairs.push(currentVal); }
-        localStorage.setItem('favPairs', JSON.stringify(favoritePairs));
-        buildAssetDropdown(); handleAssetChange();
-    }
-
-    document.getElementById('pasteArea').addEventListener('paste', function(e) {
-        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        for (let index in items) {
-            const item = items[index];
-            if (item.kind === 'file' && item.type.includes('image')) {
-                const blob = item.getAsFile();
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    currentImageBase64 = event.target.result;
-                    const imgPreview = document.getElementById('previewImage');
-                    imgPreview.src = currentImageBase64; imgPreview.style.display = 'block';
-                    document.getElementById('pasteArea').style.borderColor = "#4caf50";
-                };
-                reader.readAsDataURL(blob);
-            }
-        }
-    });
-
-    function calculatePL() {
-        const entry = parseFloat(document.getElementById('entry').value);
-        const exit = parseFloat(document.getElementById('exit').value);
-        const position = document.getElementById('position').value;
-        const size = parseFloat(document.getElementById('size').value) || 1;
-        const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
-        const commission = parseFloat(document.getElementById('commission').value) || 0;
-
-        if (entry && exit) {
-            let rawPL = position === 'Long' ? (exit - entry) * size * multiplier : (entry - exit) * size * multiplier;
-            let finalPL = rawPL - commission;
-            const plInput = document.getElementById('final-pl');
-            plInput.value = finalPL.toFixed(2);
-            plInput.style.color = finalPL >= 0 ? "#4caf50" : "#f44336";
-        }
-    }
-
-    document.getElementById('final-pl').addEventListener('input', function() {
-        const val = parseFloat(this.value) || 0;
-        this.style.color = val >= 0 ? "#4caf50" : "#f44336";
-    });
-
-    function saveTrade() {
-        const finalPL = parseFloat(document.getElementById('final-pl').value);
-        if(isNaN(finalPL)) { alert("Please ensure Net P/L is a valid number."); return; }
-        
-        const tradeData = {
-            asset: document.getElementById('asset').value, tradeTime: document.getElementById('tradeTime').value,
-            position: document.getElementById('position').value, entry: document.getElementById('entry').value,
-            exit: document.getElementById('exit').value, size: document.getElementById('size').value,
-            commission: document.getElementById('commission').value, notes: document.getElementById('notes').value,
-            pl: finalPL, image: currentImageBase64, logTimestamp: new Date().getTime(), isCorrection: false 
-        };
-
-        if(!tradeData.entry || !tradeData.exit) { alert("Please enter entry and exit prices."); return; }
-
-        const transaction = db.transaction(["trades"], "readwrite");
-        transaction.objectStore("trades").add(tradeData);
-        transaction.oncomplete = function() {
-            document.getElementById('entry').value = ''; document.getElementById('exit').value = '';
-            document.getElementById('notes').value = ''; document.getElementById('previewImage').style.display = 'none';
-            document.getElementById('pasteArea').style.borderColor = "#555";
-            document.getElementById('final-pl').value = "0.00"; document.getElementById('final-pl').style.color = "#fff";
-            currentImageBase64 = ""; setDefaultDateTime(); loadHistory();
-        };
-    }
-
-    function deleteTrade(id) {
-        if(confirm("Delete this entry? Recalculations will occur.")) {
-            const transaction = db.transaction(["trades"], "readwrite");
-            transaction.objectStore("trades").delete(id);
-            transaction.oncomplete = function() { loadHistory(); };
-        }
-    }
-
-    function loadHistory() {
-        const container = document.getElementById('historyContainer');
-        const filterVal = document.getElementById('historyFilter').value;
-        container.innerHTML = ''; 
-
-        const transaction = db.transaction(["trades"], "readonly");
-        const objectStore = transaction.objectStore("trades");
-        const request = objectStore.openCursor(null, "prev"); 
-
-        let totalLoggedTrades = 0, winLoggedTrades = 0, totalPLIncludingCorrections = 0;
-
-        request.onsuccess = function(event) {
-            const cursor = event.target.result;
-            if (cursor) {
-                const trade = cursor.value;
-                totalPLIncludingCorrections += trade.pl;
-
-                if (!trade.isCorrection) {
-                    totalLoggedTrades++;
-                    if (trade.pl >= 0) winLoggedTrades++;
-                }
-
-                let showCard = true;
-                if (trade.isCorrection && filterVal !== 'all') showCard = false; 
-                else if (filterVal === 'wins' && trade.pl < 0) showCard = false;
-                else if (filterVal === 'losses' && trade.pl >= 0) showCard = false;
-
-                if (showCard) {
-                    const card = document.createElement('div');
-                    card.className = `history-card ${trade.pl >= 0 ? 'profit-card' : 'loss-card'}`;
-                    let imageHTML = trade.image ? `<img src="${trade.image}" alt="Trade Chart" style="margin-top:15px; display:block;">` : '';
-                    const displayDate = new Date(trade.tradeTime).toLocaleString();
-                    
-                    let headerHTML = "", detailsHTML = "";
-                    if(trade.isCorrection) {
-                        card.style.background = "#15151a"; card.style.borderColor = "#444";
-                        headerHTML = `<div><span style="font-size: 1.1em; color:#a9a9b3;">BALANCE CORRECTION</span><span style="color: #666; font-weight: normal; margin-left: 10px; font-size: 0.9em;">${displayDate}</span></div><button class="btn-delete no-print" onclick="deleteTrade(${trade.id})" style="border-color:#666; color:#666">Remove</button>`;
-                        detailsHTML = `<div><strong>Old Calc Balance:</strong> $${parseFloat(trade.entry).toFixed(2)} &nbsp;|&nbsp; <strong>Actual Balance:</strong> $${parseFloat(trade.exit).toFixed(2)} &nbsp;|&nbsp; <strong>Correction:</strong> <span class="${trade.pl >= 0 ? 'text-green' : 'text-red'}">${trade.pl >= 0 ? '+' : ''}$${trade.pl.toFixed(2)}</span></div>`;
-                    } else {
-                        headerHTML = `<div><span style="font-size: 1.1em;">${trade.asset} - ${trade.position}</span><span style="color: #888; font-weight: normal; margin-left: 10px; font-size: 0.9em;">${displayDate}</span></div><button class="btn-delete no-print" onclick="deleteTrade(${trade.id})">Delete</button>`;
-                        detailsHTML = `<div><strong>Entry:</strong> ${trade.entry} &nbsp;|&nbsp; <strong>Exit:</strong> ${trade.exit} &nbsp;|&nbsp; <strong>Net P/L:</strong> <span class="${trade.pl >= 0 ? 'text-green' : 'text-red'}">$${trade.pl.toFixed(2)}</span></div>`;
-                    }
-
-                    card.innerHTML = `<div class="history-header">${headerHTML}</div>${detailsHTML}<div style="margin-top: 10px; color: #aaa;"><em>${trade.notes}</em></div>${imageHTML}`;
-                    container.appendChild(card);
-                }
-                cursor.continue();
-            } else {
-                const plEl = document.getElementById('stat-totalpl');
-                plEl.innerText = `${totalPLIncludingCorrections >= 0 ? '+' : ''}$${totalPLIncludingCorrections.toFixed(2)}`;
-                plEl.className = `stat-value ${totalPLIncludingCorrections >= 0 ? 'text-green' : 'text-red'}`;
-
-                const winRate = totalLoggedTrades > 0 ? ((winLoggedTrades / totalLoggedTrades) * 100).toFixed(2) : "0.00";
-                document.getElementById('stat-winrate').innerText = `${winRate}%`;
-                document.getElementById('stat-winrate').className = `stat-value ${parseFloat(winRate) >= 50 ? 'text-green' : 'text-red'}`;
-
-                const currentBalance = baseCapital + totalPLIncludingCorrections;
-                const currentEl = document.getElementById('stat-current');
-                currentEl.innerText = `$${currentBalance.toFixed(2)}`;
-                currentEl.className = `stat-value-large ${currentBalance >= baseCapital ? 'text-green' : 'text-red'}`;
-            }
-        };
-    }
-
-    function exportBackupJSON() {
-        const transaction = db.transaction(["trades"], "readonly");
-        const request = transaction.objectStore("trades").getAll();
-        request.onsuccess = function(event) {
-            const data = { baseCapital: baseCapital, trades: event.target.result };
-            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const link = document.createElement("a");
-            link.setAttribute("href", URL.createObjectURL(blob));
-            link.setAttribute("download", `TradeJournal_LocalBackup_${new Date().toISOString().slice(0,10)}.json`);
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        };
-    }
-
-    function importBackupJSON(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data.trades && Array.isArray(data.trades)) {
-                    if(confirm("Warning: Restoring will merge these trades with your current history. Continue?")) {
-                        if(data.baseCapital) {
-                            baseCapital = data.baseCapital;
-                            document.getElementById('initialBalanceInput').value = baseCapital;
-                            localStorage.setItem('tradeJournalCapital', baseCapital);
-                        }
-                        const transaction = db.transaction(["trades"], "readwrite");
-                        const objectStore = transaction.objectStore("trades");
-                        data.trades.forEach(trade => { delete trade.id; objectStore.add(trade); });
-                        transaction.oncomplete = function() {
-                            alert("Local backup restored successfully!");
-                            document.getElementById('importFile').value = ""; loadHistory();
-                        };
-                    }
-                } else { alert("Invalid backup file format."); }
-            } catch (err) { alert("Error reading backup file."); }
-        };
-        reader.readAsText(file);
-    }
-</script>
-</body>
-</html>
+        else { favoritePairs.push(currentVal
