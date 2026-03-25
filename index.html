@@ -4,10 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Professional Offline Trade Journal</title>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e24; color: #fff; padding: 20px; }
         .container { max-width: 900px; margin: auto; background: #2b2b36; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         
+        /* Cloud Sync Panel */
+        .cloud-panel { background: #1a1a24; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #2196F3; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
+        .cloud-status { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .status-dot { height: 12px; width: 12px; background-color: #f44336; border-radius: 50%; display: inline-block; }
+        .status-dot.connected { background-color: #4caf50; }
+        .cloud-buttons { display: flex; gap: 10px; }
+        .btn-cloud { background-color: transparent; border: 1px solid #2196F3; color: #2196F3; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: auto; margin: 0; }
+        .btn-cloud:hover { background-color: rgba(33, 150, 243, 0.1); }
+        .btn-cloud:disabled { border-color: #555; color: #555; cursor: not-allowed; background: transparent; }
+
         /* Account Settings */
         .account-setup { background: #15151a; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #4caf50; display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; align-items: center;}
         .account-setup label { margin-bottom: 0; color: #4caf50; white-space: nowrap;}
@@ -49,10 +63,8 @@
         button { background-color: #4caf50; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 15px; transition: 0.2s; }
         button:hover { background-color: #45a049; }
         
-        .btn-outline { background-color: transparent; border: 1px solid #4caf50; color: #4caf50; margin-bottom: 0; }
+        .btn-outline { background-color: transparent; border: 1px solid #4caf50; color: #4caf50; margin-bottom: 0; width: auto; padding: 5px 15px; font-size: 14px;}
         .btn-outline:hover { background-color: rgba(76, 175, 80, 0.1); }
-        .btn-outline-blue { border-color: #2196F3; color: #2196F3; }
-        .btn-outline-blue:hover { background-color: rgba(33, 150, 243, 0.1); }
         
         .btn-delete { background-color: transparent; border: 1px solid #f44336; color: #f44336; padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
         .btn-delete:hover { background-color: rgba(244, 67, 54, 0.1); }
@@ -68,26 +80,17 @@
         .history-card img { max-width: 100%; margin-top: 10px; border-radius: 4px; border: 1px solid #333; }
         .history-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 8px; align-items: center; }
 
-        /* --- PRINT STYLES FOR PDF EXPORT --- */
         @media print {
             body { background-color: #fff; color: #000; padding: 0; font-size: 12pt; }
             .container { box-shadow: none; max-width: 100%; padding: 0; background: transparent; }
-            
-            /* Hide UI elements not needed in the report */
-            .account-setup, .row, .form-group, .image-paste-area, button, .filter-section, hr, h2.no-print { display: none !important; }
-            
-            /* Adjust Dashboard for print */
+            .cloud-panel, .account-setup, .row, .form-group, .image-paste-area, button, .filter-section, hr, h2.no-print { display: none !important; }
             .dashboard, .stat-box, .stat-box-large { background: #f9f9f9 !important; border: 1px solid #ccc !important; color: #000 !important; }
             .stat-label { color: #555 !important; }
-            
-            /* Adjust History Cards for print */
             .history-card { background: #fff !important; border: 1px solid #ddd !important; border-left: 5px solid #ccc !important; color: #000 !important; box-shadow: none; }
             .history-card.profit-card { border-left-color: #2e7d32 !important; }
             .history-card.loss-card { border-left-color: #c62828 !important; }
             .history-header { border-bottom-color: #eee !important; }
             .history-header span { color: #333 !important; }
-            
-            /* Text colors */
             .text-green { color: #2e7d32 !important; font-weight: bold;}
             .text-red { color: #c62828 !important; font-weight: bold;}
             div[style*="color: #aaa;"] { color: #555 !important; }
@@ -98,6 +101,18 @@
 
 <div class="container">
     
+    <div class="cloud-panel no-print">
+        <div class="cloud-status">
+            <span class="status-dot" id="driveStatusDot"></span>
+            <span id="driveStatusText" style="color:#a9a9b3;">Google Drive Disconnected</span>
+        </div>
+        <div class="cloud-buttons">
+            <button class="btn-cloud" id="btnConnect" onclick="handleAuthClick()">Connect to Google Drive</button>
+            <button class="btn-cloud" id="btnSaveCloud" onclick="saveToCloud()" disabled>⬆ Save to Cloud</button>
+            <button class="btn-cloud" id="btnLoadCloud" onclick="loadFromCloud()" disabled>⬇ Load from Cloud</button>
+        </div>
+    </div>
+
     <div class="account-setup">
         <label>Starting Balance ($):</label>
         <div style="max-width: 300px;">
@@ -107,10 +122,8 @@
         <label>Manual True-Up ($):</label>
         <div class="true-up-row">
             <input type="number" id="manualBalanceInput" step="0.01" placeholder="Current Balance">
-            <button type="button" class="btn-outline" style="width: auto; padding: 8px 15px;" onclick="performBalanceTrueUp()">Apply</button>
+            <button type="button" class="btn-outline" onclick="performBalanceTrueUp()">Apply</button>
         </div>
-        
-        <div class="help-text">Use "True-Up" if you miss entering trades or making adjustments. Enter actual balance and click Apply.</div>
     </div>
 
     <h2>Performance Dashboard</h2>
@@ -194,7 +207,7 @@
     </div>
     
     <div class="form-group pl-input-group">
-        <label>Final Net Profit / Loss ($) - <span style="font-weight:normal; font-size: 0.9em;">Auto-calculated, but you can override this to match your broker exactly.</span></label>
+        <label>Final Net Profit / Loss ($)</label>
         <input type="number" id="final-pl" step="0.01" value="0.00">
     </div>
 
@@ -211,11 +224,10 @@
                 <option value="wins">Winning Logged Trades</option>
                 <option value="losses">Losing Logged Trades</option>
             </select>
-            <button class="btn-outline" onclick="window.print()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">🖨️ Save as PDF Report</button>
-            <button class="btn-outline btn-outline-blue" onclick="exportBackupJSON()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">💾 Backup Data</button>
-            
+            <button class="btn-outline" onclick="window.print()">🖨️ Save as PDF Report</button>
+            <button class="btn-outline" onclick="exportBackupJSON()" style="border-color: #888; color: #888;">💾 Local Backup</button>
             <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackupJSON(event)">
-            <button class="btn-outline btn-outline-blue" onclick="document.getElementById('importFile').click()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">📂 Restore</button>
+            <button class="btn-outline" onclick="document.getElementById('importFile').click()" style="border-color: #888; color: #888;">📂 Local Restore</button>
         </div>
     </div>
     
@@ -223,6 +235,146 @@
 </div>
 
 <script>
+    // --- GOOGLE DRIVE SYNC ENGINE ---
+    const CLIENT_ID = '247896553852-gg1r371ge1hurv0e2rpml4613omp2tn1.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyCqQPKLPMQaIBbePLyTb3MUIZbkOZYAql8';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    const BACKUP_FILENAME = 'TradeJournal_CloudSync.json';
+
+    let tokenClient;
+    let gapiInited = false;
+    let gisInited = false;
+
+    function gapiLoaded() { gapi.load('client', initializeGapiClient); }
+    
+    async function initializeGapiClient() {
+        await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+        gapiInited = true;
+    }
+
+    function gisLoaded() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: '', // defined later
+        });
+        gisInited = true;
+    }
+
+    function handleAuthClick() {
+        tokenClient.callback = async (resp) => {
+            if (resp.error !== undefined) { throw (resp); }
+            document.getElementById('driveStatusDot').classList.add('connected');
+            document.getElementById('driveStatusText').innerText = "Google Drive Connected";
+            document.getElementById('driveStatusText').style.color = "#4caf50";
+            document.getElementById('btnConnect').style.display = 'none';
+            document.getElementById('btnSaveCloud').disabled = false;
+            document.getElementById('btnLoadCloud').disabled = false;
+        };
+        if (gapi.client.getToken() === null) {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+            tokenClient.requestAccessToken({prompt: ''});
+        }
+    }
+
+    async function getDriveFileId() {
+        let response;
+        try {
+            response = await gapi.client.drive.files.list({
+                q: `name='${BACKUP_FILENAME}' and trashed=false`,
+                fields: 'files(id, name)',
+                spaces: 'drive'
+            });
+        } catch (err) { console.error(err); return null; }
+        const files = response.result.files;
+        if (files && files.length > 0) { return files[0].id; }
+        return null;
+    }
+
+    async function saveToCloud() {
+        const btn = document.getElementById('btnSaveCloud');
+        btn.innerText = "Syncing..."; btn.disabled = true;
+
+        const transaction = db.transaction(["trades"], "readonly");
+        const request = transaction.objectStore("trades").getAll();
+
+        request.onsuccess = async function(event) {
+            const data = { baseCapital: baseCapital, trades: event.target.result };
+            const fileContent = JSON.stringify(data);
+            const file = new Blob([fileContent], {type: 'application/json'});
+            const metadata = { name: BACKUP_FILENAME, mimeType: 'application/json' };
+
+            const accessToken = gapi.client.getToken().access_token;
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', file);
+
+            try {
+                const existingFileId = await getDriveFileId();
+                let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                let method = 'POST';
+
+                if (existingFileId) {
+                    url = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart`;
+                    method = 'PATCH';
+                }
+
+                await fetch(url, {
+                    method: method,
+                    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+                    body: form
+                });
+
+                alert("Successfully saved to Google Drive!");
+            } catch (err) {
+                alert("Error saving to cloud: " + err.message);
+            }
+            btn.innerText = "⬆ Save to Cloud"; btn.disabled = false;
+        };
+    }
+
+    async function loadFromCloud() {
+        if(!confirm("Warning: Loading from the cloud will overwrite your current device's journal data. Continue?")) return;
+        
+        const btn = document.getElementById('btnLoadCloud');
+        btn.innerText = "Loading..."; btn.disabled = true;
+
+        try {
+            const fileId = await getDriveFileId();
+            if (!fileId) { alert("No sync file found in your Google Drive yet."); btn.innerText = "⬇ Load from Cloud"; btn.disabled = false; return; }
+
+            const response = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
+            const data = response.result; // gapi automatically parses JSON
+
+            if (data.trades && Array.isArray(data.trades)) {
+                if(data.baseCapital !== undefined) {
+                    baseCapital = data.baseCapital;
+                    document.getElementById('initialBalanceInput').value = baseCapital;
+                    localStorage.setItem('tradeJournalCapital', baseCapital);
+                }
+
+                // Clear current DB and load cloud data
+                const transaction = db.transaction(["trades"], "readwrite");
+                const objectStore = transaction.objectStore("trades");
+                objectStore.clear(); 
+                
+                data.trades.forEach(trade => { delete trade.id; objectStore.add(trade); });
+
+                transaction.oncomplete = function() {
+                    alert("Cloud data loaded successfully!");
+                    loadHistory();
+                };
+            } else { alert("Cloud file is corrupted or empty."); }
+        } catch (err) {
+            alert("Error loading from cloud: " + err.message);
+        }
+        btn.innerText = "⬇ Load from Cloud"; btn.disabled = false;
+    }
+
+
+    // --- CORE JOURNAL APP LOGIC ---
     let currentImageBase64 = "";
     let db;
     let baseCapital = parseFloat(localStorage.getItem('tradeJournalCapital')) || 0;
@@ -477,55 +629,39 @@
         };
     }
 
-    // --- NEW: BACKUP & RESTORE SYSTEM ---
     function exportBackupJSON() {
         const transaction = db.transaction(["trades"], "readonly");
         const request = transaction.objectStore("trades").getAll();
         request.onsuccess = function(event) {
-            const data = {
-                baseCapital: baseCapital,
-                trades: event.target.result
-            };
+            const data = { baseCapital: baseCapital, trades: event.target.result };
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const link = document.createElement("a");
             link.setAttribute("href", URL.createObjectURL(blob));
-            link.setAttribute("download", `TradeJournal_Backup_${new Date().toISOString().slice(0,10)}.json`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            link.setAttribute("download", `TradeJournal_LocalBackup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
         };
     }
 
     function importBackupJSON(event) {
         const file = event.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.trades && Array.isArray(data.trades)) {
                     if(confirm("Warning: Restoring will merge these trades with your current history. Continue?")) {
-                        
                         if(data.baseCapital) {
                             baseCapital = data.baseCapital;
                             document.getElementById('initialBalanceInput').value = baseCapital;
                             localStorage.setItem('tradeJournalCapital', baseCapital);
                         }
-
                         const transaction = db.transaction(["trades"], "readwrite");
                         const objectStore = transaction.objectStore("trades");
-                        
-                        data.trades.forEach(trade => {
-                            // Delete ID so IndexedDB creates a new auto-incremented one to avoid conflicts
-                            delete trade.id; 
-                            objectStore.add(trade);
-                        });
-
+                        data.trades.forEach(trade => { delete trade.id; objectStore.add(trade); });
                         transaction.oncomplete = function() {
-                            alert("Backup restored successfully!");
-                            document.getElementById('importFile').value = ""; // reset input
-                            loadHistory();
+                            alert("Local backup restored successfully!");
+                            document.getElementById('importFile').value = ""; loadHistory();
                         };
                     }
                 } else { alert("Invalid backup file format."); }
