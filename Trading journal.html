@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Offline Trade Journal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e24; color: #fff; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: #2b2b36; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        
+        /* Account Settings */
+        .account-setup { background: #15151a; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #4caf50; display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; align-items: center;}
+        .account-setup label { margin-bottom: 0; color: #4caf50; white-space: nowrap;}
+        .account-setup input { padding: 8px; width: 100%; box-sizing: border-box;}
+        .true-up-row { display: flex; gap: 10px; width: 100%; max-width: 300px; }
+        .help-text { color:#888; font-size:0.85em; grid-column: 1 / -1; margin-top: -5px; }
+        
+        /* Stats Dashboard */
+        .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; background: #15151a; padding: 15px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #444; }
+        .dashboard-row-full { grid-template-columns: 1fr; margin-bottom: 20px;}
+        .stat-box { text-align: center; background: #1e1e24; padding: 15px; border-radius: 6px; }
+        .stat-box-large { text-align: center; background: #22222a; padding: 20px; border-radius: 6px; border: 2px solid #444;}
+        .stat-value { font-size: 1.6em; font-weight: bold; margin-top: 5px; }
+        .stat-value-large { font-size: 2.2em; font-weight: bold; margin-top: 5px; }
+        .stat-label { color: #a9a9b3; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; }
+        .text-green { color: #4caf50; }
+        .text-red { color: #f44336; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #a9a9b3; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #1e1e24; color: #fff; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #4caf50; }
+        textarea { height: 100px; resize: vertical; }
+        .row { display: flex; gap: 15px; }
+        .row > div { flex: 1; }
+        
+        .asset-row { display: flex; gap: 5px; }
+        .asset-row select { flex: 1; }
+        .fav-btn { background: #444; color: gold; border: 1px solid #555; padding: 0 15px; border-radius: 4px; cursor: pointer; font-size: 1.2em; width: auto; margin: 0; }
+        .fav-btn:hover { background: #555; }
+
+        .pl-input-group input { font-size: 1.3em; font-weight: bold; text-align: left; background: #15151a; border: 2px solid #444; color: #fff; }
+        .pl-input-group input:focus { border-color: #4caf50; }
+        
+        .image-paste-area { border: 2px dashed #555; padding: 20px; text-align: center; color: #888; margin-bottom: 15px; border-radius: 4px; cursor: pointer; background: #1a1a20; transition: 0.3s; }
+        .image-paste-area:hover { border-color: #4caf50; color: #aaa; }
+        .image-paste-area img { max-width: 100%; max-height: 350px; margin-top: 10px; border-radius: 4px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        
+        button { background-color: #4caf50; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 15px; transition: 0.2s; }
+        button:hover { background-color: #45a049; }
+        
+        .btn-outline { background-color: transparent; border: 1px solid #4caf50; color: #4caf50; margin-bottom: 0; }
+        .btn-outline:hover { background-color: rgba(76, 175, 80, 0.1); }
+        .btn-outline-blue { border-color: #2196F3; color: #2196F3; }
+        .btn-outline-blue:hover { background-color: rgba(33, 150, 243, 0.1); }
+        
+        .btn-delete { background-color: transparent; border: 1px solid #f44336; color: #f44336; padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
+        .btn-delete:hover { background-color: rgba(244, 67, 54, 0.1); }
+        
+        hr { border: 1px solid #444; margin: 30px 0; }
+        
+        .filter-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;}
+        .filter-select { width: auto; padding: 5px 10px; border: 1px solid #555; border-radius: 4px; background: #15151a; color: #fff; cursor: pointer; }
+
+        .history-card { background: #1e1e24; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #444; position: relative; page-break-inside: avoid;}
+        .history-card.profit-card { border-left-color: #4caf50; }
+        .history-card.loss-card { border-left-color: #f44336; }
+        .history-card img { max-width: 100%; margin-top: 10px; border-radius: 4px; border: 1px solid #333; }
+        .history-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 8px; align-items: center; }
+
+        /* --- PRINT STYLES FOR PDF EXPORT --- */
+        @media print {
+            body { background-color: #fff; color: #000; padding: 0; font-size: 12pt; }
+            .container { box-shadow: none; max-width: 100%; padding: 0; background: transparent; }
+            
+            /* Hide UI elements not needed in the report */
+            .account-setup, .row, .form-group, .image-paste-area, button, .filter-section, hr, h2.no-print { display: none !important; }
+            
+            /* Adjust Dashboard for print */
+            .dashboard, .stat-box, .stat-box-large { background: #f9f9f9 !important; border: 1px solid #ccc !important; color: #000 !important; }
+            .stat-label { color: #555 !important; }
+            
+            /* Adjust History Cards for print */
+            .history-card { background: #fff !important; border: 1px solid #ddd !important; border-left: 5px solid #ccc !important; color: #000 !important; box-shadow: none; }
+            .history-card.profit-card { border-left-color: #2e7d32 !important; }
+            .history-card.loss-card { border-left-color: #c62828 !important; }
+            .history-header { border-bottom-color: #eee !important; }
+            .history-header span { color: #333 !important; }
+            
+            /* Text colors */
+            .text-green { color: #2e7d32 !important; font-weight: bold;}
+            .text-red { color: #c62828 !important; font-weight: bold;}
+            div[style*="color: #aaa;"] { color: #555 !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="account-setup">
+        <label>Starting Balance ($):</label>
+        <div style="max-width: 300px;">
+            <input type="number" id="initialBalanceInput" step="0.01" onchange="updateInitialBalance()" placeholder="e.g., 10000">
+        </div>
+        
+        <label>Manual True-Up ($):</label>
+        <div class="true-up-row">
+            <input type="number" id="manualBalanceInput" step="0.01" placeholder="Current Balance">
+            <button type="button" class="btn-outline" style="width: auto; padding: 8px 15px;" onclick="performBalanceTrueUp()">Apply</button>
+        </div>
+        
+        <div class="help-text">Use "True-Up" if you miss entering trades or making adjustments. Enter actual balance and click Apply.</div>
+    </div>
+
+    <h2>Performance Dashboard</h2>
+    <div class="dashboard dashboard-row-full" id="statsDashboardLarge">
+        <div class="stat-box-large">
+            <div class="stat-label">Actual Current Balance</div>
+            <div class="stat-value-large" id="stat-current">$0.00</div>
+        </div>
+    </div>
+    <div class="dashboard" id="statsDashboard">
+        <div class="stat-box">
+            <div class="stat-label">Logged P/L + Corrections</div>
+            <div class="stat-value" id="stat-totalpl">$0.00</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-value" id="stat-winrate">0.00%</div>
+        </div>
+    </div>
+
+    <h2 class="no-print">Log a New Trade</h2>
+    
+    <div class="row">
+        <div class="form-group">
+            <label>Trade Date & Time</label>
+            <input type="datetime-local" id="tradeTime">
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>Asset</label>
+            <div class="asset-row">
+                <select id="asset" onchange="handleAssetChange()"></select>
+                <button type="button" class="fav-btn" id="favBtn" onclick="toggleFavorite()" title="Toggle Favorite">☆</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Position</label>
+            <select id="position" onchange="calculatePL()">
+                <option value="Long">Long (Buy)</option>
+                <option value="Short">Short (Sell)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>Entry Price</label>
+            <input type="number" id="entry" step="0.00001" oninput="calculatePL()">
+        </div>
+        <div class="form-group">
+            <label>Exit Price</label>
+            <input type="number" id="exit" step="0.00001" oninput="calculatePL()">
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="form-group">
+            <label>Position Size (Lots)</label>
+            <input type="number" id="size" step="0.01" value="1" oninput="calculatePL()">
+        </div>
+        <div class="form-group">
+            <label>Contract Multiplier (1 Lot = ?)</label>
+            <input type="number" id="multiplier" value="100000" oninput="calculatePL()">
+        </div>
+        <div class="form-group">
+            <label>Commission ($)</label>
+            <input type="number" id="commission" step="0.01" value="0" oninput="calculatePL()">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Trade Notes & Strategy Analysis</label>
+        <textarea id="notes" placeholder="Did this trade align with your custom technical indicators?"></textarea>
+    </div>
+
+    <div class="image-paste-area" id="pasteArea" tabindex="0">
+        <p>Click here and press <b>Ctrl+V</b> (or Cmd+V) to paste your chart image</p>
+        <img id="previewImage" src="" alt="Chart Preview">
+    </div>
+    
+    <div class="form-group pl-input-group">
+        <label>Final Net Profit / Loss ($) - <span style="font-weight:normal; font-size: 0.9em;">Auto-calculated, but you can override this to match your broker exactly.</span></label>
+        <input type="number" id="final-pl" step="0.01" value="0.00">
+    </div>
+
+    <button onclick="saveTrade()">Save Trade</button>
+
+    <hr>
+    
+    <div class="filter-section">
+        <h2 style="margin:0;">Trade History Report</h2>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <label style="margin: 0;">Filter:</label>
+            <select class="filter-select" id="historyFilter" onchange="loadHistory()">
+                <option value="all">All Logged Trades</option>
+                <option value="wins">Winning Logged Trades</option>
+                <option value="losses">Losing Logged Trades</option>
+            </select>
+            <button class="btn-outline" onclick="window.print()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">🖨️ Save as PDF Report</button>
+            <button class="btn-outline btn-outline-blue" onclick="exportBackupJSON()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">💾 Backup Data</button>
+            
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importBackupJSON(event)">
+            <button class="btn-outline btn-outline-blue" onclick="document.getElementById('importFile').click()" style="padding: 5px 15px; font-size: 14px; width: auto; margin:0;">📂 Restore</button>
+        </div>
+    </div>
+    
+    <div id="historyContainer"></div>
+</div>
+
+<script>
+    let currentImageBase64 = "";
+    let db;
+    let baseCapital = parseFloat(localStorage.getItem('tradeJournalCapital')) || 0;
+    
+    const ALL_PAIRS = ["XAUUSD", "EURUSD", "AUDUSD", "USDCAD", "USDCHF", "USDJPY", "GBPJPY", "NZDCAD", "NZDUSD", "GBPUSD", "BTCUSDT", "EURGBP"];
+    let favoritePairs = JSON.parse(localStorage.getItem('favPairs')) || ["XAUUSD"];
+
+    window.onload = function() {
+        setDefaultDateTime();
+        buildAssetDropdown();
+        handleAssetChange(); 
+        
+        if(baseCapital > 0) { document.getElementById('initialBalanceInput').value = baseCapital; }
+        
+        const request = indexedDB.open("TradeJournalDB", 1);
+        request.onupgradeneeded = function(event) {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains("trades")) {
+                db.createObjectStore("trades", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        request.onsuccess = function(event) {
+            db = event.target.result;
+            loadHistory();
+        };
+    };
+
+    function updateInitialBalance() {
+        baseCapital = parseFloat(document.getElementById('initialBalanceInput').value) || 0;
+        localStorage.setItem('tradeJournalCapital', baseCapital);
+        loadHistory(); 
+    }
+
+    function performBalanceTrueUp() {
+        const manualBalanceInput = document.getElementById('manualBalanceInput');
+        const manualActualValue = parseFloat(manualBalanceInput.value);
+        if (isNaN(manualActualValue)) { alert("Please enter a valid number."); return; }
+
+        const netPLText = document.getElementById('stat-totalpl').innerText.replace('$','').replace('+','');
+        const calculatedLoggedPL = parseFloat(netPLText) || 0;
+        const calculatedBalanceBeforeTrueUp = baseCapital + calculatedLoggedPL;
+        const adjustmentNeeded = manualActualValue - calculatedBalanceBeforeTrueUp;
+
+        if (Math.abs(adjustmentNeeded) < 0.01) {
+            alert("The account balance is already accurate!");
+            manualBalanceInput.value = ''; return;
+        }
+
+        const adjustmentEntry = {
+            asset: "BALANCE CORRECTION", tradeTime: new Date().toISOString(),
+            position: adjustmentNeeded > 0 ? "Deposit/Adjustment" : "Withdrawal/Adjustment",
+            entry: calculatedBalanceBeforeTrueUp.toFixed(2), exit: manualActualValue.toFixed(2),
+            size: 1, commission: 0,
+            notes: `Manual balance true-up. Calculated Adjustment: ${adjustmentNeeded >= 0 ? '+' : ''}${adjustmentNeeded.toFixed(2)}`,
+            pl: adjustmentNeeded, image: "", logTimestamp: new Date().getTime(), isCorrection: true 
+        };
+
+        const transaction = db.transaction(["trades"], "readwrite");
+        transaction.objectStore("trades").add(adjustmentEntry);
+        transaction.oncomplete = function() {
+            alert(`Correction of $${adjustmentNeeded.toFixed(2)} logged.`);
+            manualBalanceInput.value = ''; loadHistory(); 
+        };
+    }
+
+    function setDefaultDateTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('tradeTime').value = now.toISOString().slice(0,16);
+    }
+
+    function buildAssetDropdown() {
+        const select = document.getElementById('asset');
+        const currentSelection = select.value;
+        select.innerHTML = ''; 
+
+        if (favoritePairs.length > 0) {
+            const favGroup = document.createElement('optgroup'); favGroup.label = "★ Favorites";
+            favoritePairs.forEach(pair => {
+                const opt = document.createElement('option'); opt.value = pair; opt.innerText = pair;
+                favGroup.appendChild(opt);
+            });
+            select.appendChild(favGroup);
+        }
+
+        const allGroup = document.createElement('optgroup'); allGroup.label = "All Assets";
+        ALL_PAIRS.forEach(pair => {
+            if (!favoritePairs.includes(pair)) {
+                const opt = document.createElement('option'); opt.value = pair; opt.innerText = pair;
+                allGroup.appendChild(opt);
+            }
+        });
+        select.appendChild(allGroup);
+        if (currentSelection && (favoritePairs.includes(currentSelection) || ALL_PAIRS.includes(currentSelection))) { select.value = currentSelection; }
+    }
+
+    function handleAssetChange() {
+        const asset = document.getElementById('asset').value;
+        let mult = 100000; 
+        if (asset.includes('XAU')) mult = 100;
+        if (asset.includes('BTC')) mult = 1;
+        document.getElementById('multiplier').value = mult;
+
+        const btn = document.getElementById('favBtn');
+        if (favoritePairs.includes(asset)) { btn.innerText = "★"; btn.style.color = "gold"; } 
+        else { btn.innerText = "☆"; btn.style.color = "#888"; }
+        calculatePL();
+    }
+
+    function toggleFavorite() {
+        const currentVal = document.getElementById('asset').value;
+        if (favoritePairs.includes(currentVal)) { favoritePairs = favoritePairs.filter(p => p !== currentVal); } 
+        else { favoritePairs.push(currentVal); }
+        localStorage.setItem('favPairs', JSON.stringify(favoritePairs));
+        buildAssetDropdown(); handleAssetChange();
+    }
+
+    document.getElementById('pasteArea').addEventListener('paste', function(e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let index in items) {
+            const item = items[index];
+            if (item.kind === 'file' && item.type.includes('image')) {
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    currentImageBase64 = event.target.result;
+                    const imgPreview = document.getElementById('previewImage');
+                    imgPreview.src = currentImageBase64; imgPreview.style.display = 'block';
+                    document.getElementById('pasteArea').style.borderColor = "#4caf50";
+                };
+                reader.readAsDataURL(blob);
+            }
+        }
+    });
+
+    function calculatePL() {
+        const entry = parseFloat(document.getElementById('entry').value);
+        const exit = parseFloat(document.getElementById('exit').value);
+        const position = document.getElementById('position').value;
+        const size = parseFloat(document.getElementById('size').value) || 1;
+        const multiplier = parseFloat(document.getElementById('multiplier').value) || 1;
+        const commission = parseFloat(document.getElementById('commission').value) || 0;
+
+        if (entry && exit) {
+            let rawPL = position === 'Long' ? (exit - entry) * size * multiplier : (entry - exit) * size * multiplier;
+            let finalPL = rawPL - commission;
+            const plInput = document.getElementById('final-pl');
+            plInput.value = finalPL.toFixed(2);
+            plInput.style.color = finalPL >= 0 ? "#4caf50" : "#f44336";
+        }
+    }
+
+    document.getElementById('final-pl').addEventListener('input', function() {
+        const val = parseFloat(this.value) || 0;
+        this.style.color = val >= 0 ? "#4caf50" : "#f44336";
+    });
+
+    function saveTrade() {
+        const finalPL = parseFloat(document.getElementById('final-pl').value);
+        if(isNaN(finalPL)) { alert("Please ensure Net P/L is a valid number."); return; }
+        
+        const tradeData = {
+            asset: document.getElementById('asset').value, tradeTime: document.getElementById('tradeTime').value,
+            position: document.getElementById('position').value, entry: document.getElementById('entry').value,
+            exit: document.getElementById('exit').value, size: document.getElementById('size').value,
+            commission: document.getElementById('commission').value, notes: document.getElementById('notes').value,
+            pl: finalPL, image: currentImageBase64, logTimestamp: new Date().getTime(), isCorrection: false 
+        };
+
+        if(!tradeData.entry || !tradeData.exit) { alert("Please enter entry and exit prices."); return; }
+
+        const transaction = db.transaction(["trades"], "readwrite");
+        transaction.objectStore("trades").add(tradeData);
+        transaction.oncomplete = function() {
+            document.getElementById('entry').value = ''; document.getElementById('exit').value = '';
+            document.getElementById('notes').value = ''; document.getElementById('previewImage').style.display = 'none';
+            document.getElementById('pasteArea').style.borderColor = "#555";
+            document.getElementById('final-pl').value = "0.00"; document.getElementById('final-pl').style.color = "#fff";
+            currentImageBase64 = ""; setDefaultDateTime(); loadHistory();
+        };
+    }
+
+    function deleteTrade(id) {
+        if(confirm("Delete this entry? Recalculations will occur.")) {
+            const transaction = db.transaction(["trades"], "readwrite");
+            transaction.objectStore("trades").delete(id);
+            transaction.oncomplete = function() { loadHistory(); };
+        }
+    }
+
+    function loadHistory() {
+        const container = document.getElementById('historyContainer');
+        const filterVal = document.getElementById('historyFilter').value;
+        container.innerHTML = ''; 
+
+        const transaction = db.transaction(["trades"], "readonly");
+        const objectStore = transaction.objectStore("trades");
+        const request = objectStore.openCursor(null, "prev"); 
+
+        let totalLoggedTrades = 0, winLoggedTrades = 0, totalPLIncludingCorrections = 0;
+
+        request.onsuccess = function(event) {
+            const cursor = event.target.result;
+            if (cursor) {
+                const trade = cursor.value;
+                totalPLIncludingCorrections += trade.pl;
+
+                if (!trade.isCorrection) {
+                    totalLoggedTrades++;
+                    if (trade.pl >= 0) winLoggedTrades++;
+                }
+
+                let showCard = true;
+                if (trade.isCorrection && filterVal !== 'all') showCard = false; 
+                else if (filterVal === 'wins' && trade.pl < 0) showCard = false;
+                else if (filterVal === 'losses' && trade.pl >= 0) showCard = false;
+
+                if (showCard) {
+                    const card = document.createElement('div');
+                    card.className = `history-card ${trade.pl >= 0 ? 'profit-card' : 'loss-card'}`;
+                    let imageHTML = trade.image ? `<img src="${trade.image}" alt="Trade Chart" style="margin-top:15px; display:block;">` : '';
+                    const displayDate = new Date(trade.tradeTime).toLocaleString();
+                    
+                    let headerHTML = "", detailsHTML = "";
+                    if(trade.isCorrection) {
+                        card.style.background = "#15151a"; card.style.borderColor = "#444";
+                        headerHTML = `<div><span style="font-size: 1.1em; color:#a9a9b3;">BALANCE CORRECTION</span><span style="color: #666; font-weight: normal; margin-left: 10px; font-size: 0.9em;">${displayDate}</span></div><button class="btn-delete no-print" onclick="deleteTrade(${trade.id})" style="border-color:#666; color:#666">Remove</button>`;
+                        detailsHTML = `<div><strong>Old Calc Balance:</strong> $${parseFloat(trade.entry).toFixed(2)} &nbsp;|&nbsp; <strong>Actual Balance:</strong> $${parseFloat(trade.exit).toFixed(2)} &nbsp;|&nbsp; <strong>Correction:</strong> <span class="${trade.pl >= 0 ? 'text-green' : 'text-red'}">${trade.pl >= 0 ? '+' : ''}$${trade.pl.toFixed(2)}</span></div>`;
+                    } else {
+                        headerHTML = `<div><span style="font-size: 1.1em;">${trade.asset} - ${trade.position}</span><span style="color: #888; font-weight: normal; margin-left: 10px; font-size: 0.9em;">${displayDate}</span></div><button class="btn-delete no-print" onclick="deleteTrade(${trade.id})">Delete</button>`;
+                        detailsHTML = `<div><strong>Entry:</strong> ${trade.entry} &nbsp;|&nbsp; <strong>Exit:</strong> ${trade.exit} &nbsp;|&nbsp; <strong>Net P/L:</strong> <span class="${trade.pl >= 0 ? 'text-green' : 'text-red'}">$${trade.pl.toFixed(2)}</span></div>`;
+                    }
+
+                    card.innerHTML = `<div class="history-header">${headerHTML}</div>${detailsHTML}<div style="margin-top: 10px; color: #aaa;"><em>${trade.notes}</em></div>${imageHTML}`;
+                    container.appendChild(card);
+                }
+                cursor.continue();
+            } else {
+                const plEl = document.getElementById('stat-totalpl');
+                plEl.innerText = `${totalPLIncludingCorrections >= 0 ? '+' : ''}$${totalPLIncludingCorrections.toFixed(2)}`;
+                plEl.className = `stat-value ${totalPLIncludingCorrections >= 0 ? 'text-green' : 'text-red'}`;
+
+                const winRate = totalLoggedTrades > 0 ? ((winLoggedTrades / totalLoggedTrades) * 100).toFixed(2) : "0.00";
+                document.getElementById('stat-winrate').innerText = `${winRate}%`;
+                document.getElementById('stat-winrate').className = `stat-value ${parseFloat(winRate) >= 50 ? 'text-green' : 'text-red'}`;
+
+                const currentBalance = baseCapital + totalPLIncludingCorrections;
+                const currentEl = document.getElementById('stat-current');
+                currentEl.innerText = `$${currentBalance.toFixed(2)}`;
+                currentEl.className = `stat-value-large ${currentBalance >= baseCapital ? 'text-green' : 'text-red'}`;
+            }
+        };
+    }
+
+    // --- NEW: BACKUP & RESTORE SYSTEM ---
+    function exportBackupJSON() {
+        const transaction = db.transaction(["trades"], "readonly");
+        const request = transaction.objectStore("trades").getAll();
+        request.onsuccess = function(event) {
+            const data = {
+                baseCapital: baseCapital,
+                trades: event.target.result
+            };
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const link = document.createElement("a");
+            link.setAttribute("href", URL.createObjectURL(blob));
+            link.setAttribute("download", `TradeJournal_Backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+    }
+
+    function importBackupJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.trades && Array.isArray(data.trades)) {
+                    if(confirm("Warning: Restoring will merge these trades with your current history. Continue?")) {
+                        
+                        if(data.baseCapital) {
+                            baseCapital = data.baseCapital;
+                            document.getElementById('initialBalanceInput').value = baseCapital;
+                            localStorage.setItem('tradeJournalCapital', baseCapital);
+                        }
+
+                        const transaction = db.transaction(["trades"], "readwrite");
+                        const objectStore = transaction.objectStore("trades");
+                        
+                        data.trades.forEach(trade => {
+                            // Delete ID so IndexedDB creates a new auto-incremented one to avoid conflicts
+                            delete trade.id; 
+                            objectStore.add(trade);
+                        });
+
+                        transaction.oncomplete = function() {
+                            alert("Backup restored successfully!");
+                            document.getElementById('importFile').value = ""; // reset input
+                            loadHistory();
+                        };
+                    }
+                } else { alert("Invalid backup file format."); }
+            } catch (err) { alert("Error reading backup file."); }
+        };
+        reader.readAsText(file);
+    }
+</script>
+</body>
+</html>
