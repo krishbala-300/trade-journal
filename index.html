@@ -213,7 +213,7 @@
     </div>
     
     <div class="form-group pl-input-group">
-        <label>Final Net Profit / Loss ($)</label>
+        <label>Final Net Profit / Loss ($) - <span style="font-weight:normal; font-size: 0.9em;">Cross-pairs (e.g. GBPJPY) require manual entry.</span></label>
         <input type="number" id="final-pl" step="0.01" value="0.00">
     </div>
 
@@ -555,6 +555,7 @@
     }
 
     function calculatePL() {
+        const asset = document.getElementById('asset').value;
         const entry = parseFloat(document.getElementById('entry').value);
         const exit = parseFloat(document.getElementById('exit').value);
         const position = document.getElementById('position').value;
@@ -564,6 +565,12 @@
 
         if (entry && exit) {
             let rawPL = position === 'Long' ? (exit - entry) * size * multiplier : (entry - exit) * size * multiplier;
+            
+            // Convert profit to USD if it's a USD-base pair (e.g., USDJPY, USDCAD)
+            if (asset.startsWith('USD')) {
+                rawPL = rawPL / exit;
+            }
+            
             let finalPL = rawPL - commission;
             const plInput = document.getElementById('final-pl');
             plInput.value = finalPL.toFixed(2);
